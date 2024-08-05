@@ -1,6 +1,6 @@
 verbosity=7
 bootlogo=true
-fdtfile=rk3399-generic.dtb
+fdtfile=rockchip/rk3399-tvi3315a.dtb
 rootdev=/dev/mmcblk1p2
 rootfstype=btrfs 
 rootflags=compress=zstd:6
