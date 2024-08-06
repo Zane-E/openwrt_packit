@@ -1,6 +1,6 @@
 verbosity=7
 bootlogo=true
-fdtfile=rockchip/rk3566-radxa-cm3-rpi-cm4-io.dtb
+fdtfile=rockchip/rk3566-panther-x2.dtb
 rootdev=/dev/mmcblk0p2
 rootfstype=btrfs 
 rootflags=compress=zstd:6
