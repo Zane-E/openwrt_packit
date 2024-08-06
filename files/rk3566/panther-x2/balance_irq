@@ -14,8 +14,4 @@
 #
 #  配置文件改好，运行 balethirq.pl 即时生效
 
-# pcie-lan
-eth1	3
-
-# gmac wan
 eth0	4
