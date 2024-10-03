@@ -882,6 +882,7 @@ function extract_rockchip_boot_files() {
               ln -sf dtb-${KERNEL_VERSION} dtb && \
               cd dtb/rockchip && \
               tar xzf "${DTBS_TGZ}" && \
+              cp --backup --suffix=.bak /opt/openwrt_packit/files/rk3399/tvi3315a/rk3399-tvi3315a.dtb ./ && \
               sync
     )
     if [ $? -ne 0 ];then
