@@ -24,7 +24,7 @@ SCRIPT_REPO_URL_VALUE="https://github.com/Zane-E/openwrt_packit"
 SCRIPT_REPO_BRANCH_VALUE="master"
 
 # Set the *rootfs.tar.gz package save name
-PACKAGE_FILE="openwrt-armvirt-64-generic-rootfs.tar.gz"
+PACKAGE_FILE="openwrt-armsr-armv8-generic-rootfs.tar.gz"
 
 # Set the list of supported device
 PACKAGE_OPENWRT=(
@@ -60,7 +60,7 @@ KERNEL_AUTO_LATEST_VALUE="true"
 SELECT_PACKITPATH_VALUE="openwrt_packit"
 SELECT_OUTPUTPATH_VALUE="output"
 GZIP_IMGS_VALUE="auto"
-SAVE_OPENWRT_ARMVIRT_VALUE="true"
+SAVE_OPENWRT_ARMSR_VALUE="true"
 
 # Set the default packaging script
 SCRIPT_VPLUS_FILE="mk_h6_vplus.sh"
@@ -135,7 +135,7 @@ init_var() {
 
     # Specify the default value
     [[ -n "${SCRIPT_REPO_URL}" ]] || SCRIPT_REPO_URL="${SCRIPT_REPO_URL_VALUE}"
-    [[ "${SCRIPT_REPO_URL}" == http* ]] || SCRIPT_REPO_URL="https://github.com/${SCRIPT_REPO_URL}"
+    [[ "${SCRIPT_REPO_URL,,}" =~ ^http ]] || SCRIPT_REPO_URL="https://github.com/${SCRIPT_REPO_URL}"
     [[ -n "${SCRIPT_REPO_BRANCH}" ]] || SCRIPT_REPO_BRANCH="${SCRIPT_REPO_BRANCH_VALUE}"
     [[ -n "${KERNEL_REPO_URL}" ]] || KERNEL_REPO_URL="${KERNEL_REPO_URL_VALUE}"
     [[ -n "${PACKAGE_SOC}" ]] || PACKAGE_SOC="${PACKAGE_SOC_VALUE}"
@@ -143,7 +143,7 @@ init_var() {
     [[ -n "${GZIP_IMGS}" ]] || GZIP_IMGS="${GZIP_IMGS_VALUE}"
     [[ -n "${SELECT_PACKITPATH}" ]] || SELECT_PACKITPATH="${SELECT_PACKITPATH_VALUE}"
     [[ -n "${SELECT_OUTPUTPATH}" ]] || SELECT_OUTPUTPATH="${SELECT_OUTPUTPATH_VALUE}"
-    [[ -n "${SAVE_OPENWRT_ARMVIRT}" ]] || SAVE_OPENWRT_ARMVIRT="${SAVE_OPENWRT_ARMVIRT_VALUE}"
+    [[ -n "${SAVE_OPENWRT_ARMSR}" ]] || SAVE_OPENWRT_ARMSR="${SAVE_OPENWRT_ARMSR_VALUE}"
 
     # Specify the default packaging script
     [[ -n "${SCRIPT_VPLUS}" ]] || SCRIPT_VPLUS="${SCRIPT_VPLUS_FILE}"
@@ -207,7 +207,7 @@ init_var() {
     # Example: [ tvi3315a:rk3399-tvi3315a.dtb/sw799:rk3399-bozz-sw799.dtb ]
     RK3399_BOARD_LIST=()
     RK3399_DTB_LIST=()
-    [[ -n "${CUSTOMIZE_RK3399}" ]] && {
+    [[ -n "${CUSTOMIZE_RK3399}" && "${CUSTOMIZE_RK3399,,}" != "none" ]] && {
         # Add rk3399 to the package list
         PACKAGE_OPENWRT+=("rk3399")
 
@@ -274,22 +274,24 @@ init_packit_repo() {
     }
 
     # Check the *rootfs.tar.gz package
-    [[ -z "${OPENWRT_ARMVIRT}" ]] && error_msg "The [ OPENWRT_ARMVIRT ] variable must be specified."
+    # If the original variable name [ OPENWRT_ARMVIRT ] is detected, it will be inherited and used.
+    [[ -n "${OPENWRT_ARMVIRT}" && -z "${OPENWRT_ARMSR}" ]] && OPENWRT_ARMSR="${OPENWRT_ARMVIRT}"
+    [[ -z "${OPENWRT_ARMSR}" ]] && error_msg "The [ OPENWRT_ARMSR ] variable must be specified."
 
-    # Load *-armvirt-64-default-rootfs.tar.gz
+    # Load *-armsr-armv8-generic-rootfs.tar.gz
     rm -f ${SELECT_PACKITPATH}/${PACKAGE_FILE}
-    if [[ "${OPENWRT_ARMVIRT}" == http* ]]; then
-        echo -e "${STEPS} Download the [ ${OPENWRT_ARMVIRT} ] file into [ ${SELECT_PACKITPATH} ]"
+    if [[ "${OPENWRT_ARMSR,,}" =~ ^http ]]; then
+        echo -e "${STEPS} Download the [ ${OPENWRT_ARMSR} ] file into [ ${SELECT_PACKITPATH} ]"
 
-        # Download the *-armvirt-64-default-rootfs.tar.gz file. If the download fails, try again 10 times.
+        # Download the *-armsr-armv8-generic-rootfs.tar.gz file. If the download fails, try again 10 times.
         for i in {1..10}; do
-            curl -fsSL "${OPENWRT_ARMVIRT}" -o "${SELECT_PACKITPATH}/${PACKAGE_FILE}"
+            curl -fsSL "${OPENWRT_ARMSR}" -o "${SELECT_PACKITPATH}/${PACKAGE_FILE}"
             [[ "${?}" -eq "0" ]] && break || sleep 60
         done
         [[ "${?}" -eq "0" ]] || error_msg "Openwrt rootfs file download failed."
     else
-        echo -e "${STEPS} copy [ ${GITHUB_WORKSPACE}/${OPENWRT_ARMVIRT} ] file into [ ${SELECT_PACKITPATH} ]"
-        cp -f ${GITHUB_WORKSPACE}/${OPENWRT_ARMVIRT} ${SELECT_PACKITPATH}/${PACKAGE_FILE}
+        echo -e "${STEPS} copy [ ${GITHUB_WORKSPACE}/${OPENWRT_ARMSR} ] file into [ ${SELECT_PACKITPATH} ]"
+        cp -f ${GITHUB_WORKSPACE}/${OPENWRT_ARMSR} ${SELECT_PACKITPATH}/${PACKAGE_FILE}
         [[ "${?}" -eq "0" ]] || error_msg "Openwrt rootfs file copy failed."
     fi
 
@@ -305,7 +307,7 @@ init_packit_repo() {
     # Add custom script
     [[ -n "${SCRIPT_DIY_PATH}" ]] && {
         rm -f ${SELECT_PACKITPATH}/${SCRIPT_DIY}
-        if [[ "${SCRIPT_DIY_PATH}" == http* ]]; then
+        if [[ "${SCRIPT_DIY_PATH,,}" =~ ^http ]]; then
             echo -e "${INFO} Download the custom script file: [ ${SCRIPT_DIY_PATH} ]"
 
             # Download the custom script file. If the download fails, try again 10 times.
@@ -332,9 +334,9 @@ query_kernel() {
     for vb in "${KERNEL_TAGS[@]}"; do
         {
             # Select the corresponding kernel directory and list
-            if [[ "${vb}" == "rk3588" ]]; then
+            if [[ "${vb,,}" == "rk3588" ]]; then
                 down_kernel_list=(${RK3588_KERNEL[@]})
-            elif [[ "${vb}" == "rk35xx" ]]; then
+            elif [[ "${vb,,}" == "rk35xx" ]]; then
                 down_kernel_list=(${RK35XX_KERNEL[@]})
             else
                 down_kernel_list=(${STABLE_KERNEL[@]})
@@ -396,7 +398,7 @@ check_kernel() {
             # Check if the file sha256sum is correct
             tmp_sha256sum="$(sha256sum "${check_path}/${cf}" | awk '{print $1}')"
             tmp_checkcode="$(cat ${check_path}/sha256sums | grep ${cf} | awk '{print $1}')"
-            [[ "${tmp_sha256sum}" == "${tmp_checkcode}" ]] || error_msg "[ ${cf} ]: sha256sum verification failed."
+            [[ "${tmp_sha256sum,,}" == "${tmp_checkcode,,}" ]] || error_msg "[ ${cf} ]: sha256sum verification failed."
             let m++
         }
     done
@@ -412,9 +414,9 @@ download_kernel() {
     for vb in "${KERNEL_TAGS[@]}"; do
         {
             # Set the kernel download list
-            if [[ "${vb}" == "rk3588" ]]; then
+            if [[ "${vb,,}" == "rk3588" ]]; then
                 down_kernel_list=(${RK3588_KERNEL[@]})
-            elif [[ "${vb}" == "rk35xx" ]]; then
+            elif [[ "${vb,,}" == "rk35xx" ]]; then
                 down_kernel_list=(${RK35XX_KERNEL[@]})
             else
                 down_kernel_list=(${STABLE_KERNEL[@]})
@@ -503,8 +505,8 @@ make_openwrt() {
                     #
                     boot_kernel_file="$(ls boot-${kernel_var}* 2>/dev/null | head -n 1)"
                     KERNEL_VERSION="${boot_kernel_file:5:-7}"
-                    [[ "${vb}" == "rk3588" ]] && RK3588_KERNEL_VERSION="${KERNEL_VERSION}" || RK3588_KERNEL_VERSION=""
-                    [[ "${vb}" == "rk35xx" ]] && RK35XX_KERNEL_VERSION="${KERNEL_VERSION}" || RK35XX_KERNEL_VERSION=""
+                    [[ "${vb,,}" == "rk3588" ]] && RK3588_KERNEL_VERSION="${KERNEL_VERSION}" || RK3588_KERNEL_VERSION=""
+                    [[ "${vb,,}" == "rk35xx" ]] && RK35XX_KERNEL_VERSION="${KERNEL_VERSION}" || RK35XX_KERNEL_VERSION=""
                     echo -e "${STEPS} (${i}.${k}) Start packaging OpenWrt: [ ${PACKAGE_VAR} ], Kernel directory: [ ${vb} ], Kernel version: [ ${KERNEL_VERSION} ]"
                     echo -e "${INFO} Remaining space is ${now_remaining_space}G. \n"
 
@@ -513,7 +515,7 @@ make_openwrt() {
                     # If flowoffload is turned on, then sfe is forced to be closed by default
                     [[ "${SW_FLOWOFFLOAD}" -eq "1" ]] && SFE_FLOW="0"
 
-                    if [[ -n "${OPENWRT_VER}" && "${OPENWRT_VER}" == "auto" ]]; then
+                    if [[ -n "${OPENWRT_VER}" && "${OPENWRT_VER,,}" == "auto" ]]; then
                         OPENWRT_VER="$(cat make.env | grep "OPENWRT_VER=\"" | cut -d '"' -f2)"
                         echo -e "${INFO} (${i}.${k}) OPENWRT_VER: [ ${OPENWRT_VER} ]"
                     fi
@@ -593,10 +595,10 @@ EOF
                         cd /opt/${SELECT_PACKITPATH}/${SELECT_OUTPUTPATH}
                         case "${GZIP_IMGS}" in
                             7z | .7z)      ls *.img | head -n 1 | xargs -I % sh -c 'sudo 7z a -t7z -r %.7z %; rm -f %' ;;
+                            gz | .gz | *)  sudo pigz -f *.img ;;
+                            xz | .xz)      sudo xz -z *.img ;;
                             zip | .zip)    ls *.img | head -n 1 | xargs -I % sh -c 'sudo zip %.zip %; rm -f %' ;;
                             zst | .zst)    sudo zstd --rm *.img ;;
-                            xz | .xz)      sudo xz -z *.img ;;
-                            gz | .gz | *)  sudo pigz -f *.img ;;
                         esac
                     }
 
@@ -620,7 +622,7 @@ out_github_env() {
 
         cd /opt/${SELECT_PACKITPATH}/${SELECT_OUTPUTPATH}
 
-        if [[ "${SAVE_OPENWRT_ARMVIRT}" == "true" ]]; then
+        if [[ "${SAVE_OPENWRT_ARMSR,,}" == "true" ]]; then
             echo -e "${INFO} copy [ ${PACKAGE_FILE} ] into [ ${SELECT_OUTPUTPATH} ]"
             sudo cp -f ../${PACKAGE_FILE} .
         fi
@@ -654,7 +656,7 @@ init_packit_repo
 echo -e "${INFO} Server space usage before starting to compile:\n$(df -hT /opt/${SELECT_PACKITPATH}) \n"
 
 # Packit OpenWrt
-[[ "${KERNEL_AUTO_LATEST}" == "true" ]] && query_kernel
+[[ "${KERNEL_AUTO_LATEST,,}" == "true" ]] && query_kernel
 download_kernel
 make_openwrt
 out_github_env
